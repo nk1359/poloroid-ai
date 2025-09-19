@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+
+<body class="p-6 md:p-10 flex items-center justify-center min-h-screen">
+    <div class="container mx-auto p-8 bg-white rounded-2xl shadow-xl max-w-4xl">
+        <div class="text-center">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Image Generator</h1>
+            <p class="text-gray-600 mb-8"> Upload two images, and I will generate three new pictures based on a set of
+                custom prompts. </p>
+        </div>
+        <div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-8"> <!-- File Upload 1 -->
+            <div class="w-full md:w-1/2"> <label class="block text-gray-700 font-medium mb-2">Image 1</label> <input
+                    type="file" id="image1-input" accept="image/*"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+            </div> <!-- File Upload 2 -->
+            <div class="w-full md:w-1/2"> <label class="block text-gray-700 font-medium mb-2">Image 2</label> <input
+                    type="file" id="image2-input" accept="image/*"
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+            </div>
+        </div>
+        <div class="flex justify-center mb-8"> <button id="generate-btn"
+                class="bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 active:scale-95 duration-300 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                Generate Images </button> </div>
+        <div id="loading-indicator" class="hidden text-center text-gray-500 mb-6"> <svg
+                class="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none"
+                viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.965l1-1.674zm10 0l-1-1.674c1.865-2.141 3-4.923 3-7.965h-4v8z">
+                </path>
+            </svg>
+            <p class="mt-2">Generating your images...</p>
+        </div>
+        <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6"
+            role="alert">
+            <p class="font-bold">Error</p>
+            <p>Please upload two images to continue.</p>
+        </div> <!-- Image Gallery -->
+        <div id="image-gallery" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Generated images will appear here --> </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const image1Input = document.getElementById('image1-input');
+            const image2Input = document.getElementById('image2-input');
+            const generateBtn = document.getElementById('generate-btn');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const errorElement = document.getElementById('error-message');
+            const gallery = document.getElementById('image-gallery');
+            // The prompts for image generation 
+            const prompts = ['a polaroid photo of the two people with a white curtain background, no props, slight blur, and a soft flash light source',
+                'a polaroid photo of the two people high-fiving each other with a white curtain background, soft light, slightly blurred',
+                'a polaroid photo of the two people hugging with a white curtain background, soft light, slightly blurred'
+            ];
+            generateBtn.addEventListener('click', async () => {
+                const image1File = image1Input.files[0];
+                const image2File = image2Input.files[0];
+                if (!image1File || !image2File) {
+                    errorElement.classList.remove('hidden');
+                    return;
+                } else {
+                    errorElement.classList.add('hidden');
+                }
+                // Clear previous results and show loading indicator
+                gallery.innerHTML = '';
+                loadingIndicator.classList.remove('hidden');
+                generateBtn.disabled = true;
+                try {
+                    const base64Image1 = await fileToBase64(image1File);
+                    const base64Image2 = await fileToBase64(image2File);
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+                    const payload = {
+                        contents: [{
+                            parts: [
+                                { text: `Generate three images based on the following three prompts and the provided images: "${prompts.join('", "')}"` },
+                                { inlineData: { mimeType: image1File.type, data: base64Image1 } },
+                                { inlineData: { mimeType: image2File.type, data: base64Image2 } }
+                            ]
+                        }],
+                        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+                    };
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        throw new Error(`API response was not ok. Status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    const generatedImages = result?.candidates?.[0]?.content?.parts?.filter(part => part.inlineData && part.inlineData.mimeType.startsWith('image/'));
+                    if (generatedImages && generatedImages.length >= 3) {
+                        for (let i = 0; i < 3; i++) {
+                            const base64Data = generatedImages[i].inlineData.data;
+                            const imageUrl = `data:${generatedImages[i].inlineData.mimeType};base64,${base64Data}`;
+                            displayImage(imageUrl, prompts[i]);
+                        }
+                    } else {
+                        // Fallback for cases where the image data is not as expected
+                        throw new Error('Could not find enough generated images in the response.');
+                    }
+                } catch (error) {
+                    console.error('Error generating images:', error);
+                    errorElement.classList.remove('hidden');
+                    errorElement.querySelector('p').textContent = 'An error occurred during generation. Please try again.';
+                } finally {
+                    loadingIndicator.classList.add('hidden');
+                    generateBtn.disabled = false;
+                }
+            });
+            // Utility function to convert a file to a Base64 string
+            function fileToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(file);
+                });
+            }
+            // Function to display an image in the gallery
+            function displayImage(src, altText) {
+                const imgContainer = document.createElement('div');
+                imgContainer.classList.add('bg-gray-100', 'rounded-xl', 'p-4', 'shadow-md', 'flex', 'flex-col', 'items-center');
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = altText;
+                img.classList.add('w-full', 'h-auto', 'rounded-lg', 'mb-2', 'object-contain');
+                const promptText = document.createElement('p');
+                promptText.textContent = altText;
+                promptText.classList.add('text-sm', 'text-gray-500', 'text-center', 'italic');
+                imgContainer.appendChild(img);
+                imgContainer.appendChild(promptText);
+                gallery.appendChild(imgContainer);
+            }
+        });
+    </script>
+</body>
+
+</html>
