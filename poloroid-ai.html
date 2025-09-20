@@ -26,6 +26,14 @@
       </p>
     </div>
 
+    <!-- API Key input -->
+    <div class="mb-6">
+      <label class="block text-gray-700 font-medium mb-2">Google Gemini API Key</label>
+      <input type="password" id="api-key-input" placeholder="Enter your Google Gemini API key"
+        class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+      <p class="text-sm text-gray-500 mt-1">Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline">Google AI Studio</a></p>
+    </div>
+
     <!-- Upload inputs -->
     <div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">
       <div class="w-full md:w-1/2">
@@ -65,7 +73,7 @@
     <div id="error-message"
       class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6" role="alert">
       <p class="font-bold">Error</p>
-      <p>Please upload two images to continue.</p>
+      <p>Please upload two images and provide your API key to continue.</p>
     </div>
 
     <!-- Image Gallery -->
@@ -76,6 +84,7 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      const apiKeyInput = document.getElementById('api-key-input');
       const image1Input = document.getElementById('image1-input');
       const image2Input = document.getElementById('image2-input');
       const generateBtn = document.getElementById('generate-btn');
@@ -91,11 +100,20 @@
       ];
 
       generateBtn.addEventListener('click', async () => {
+        const apiKey = apiKeyInput.value.trim();
         const image1File = image1Input.files[0];
         const image2File = image2Input.files[0];
 
-        if (!image1File || !image2File) {
+        if (!apiKey || !image1File || !image2File) {
           errorElement.classList.remove('hidden');
+          const errorMessage = errorElement.querySelector('p:last-child');
+          if (!apiKey && (!image1File || !image2File)) {
+            errorMessage.textContent = 'Please upload two images and provide your API key to continue.';
+          } else if (!apiKey) {
+            errorMessage.textContent = 'Please provide your Google Gemini API key to continue.';
+          } else {
+            errorMessage.textContent = 'Please upload two images to continue.';
+          }
           return;
         } else {
           errorElement.classList.add('hidden');
@@ -111,8 +129,7 @@
           const base64Image1 = await fileToBase64(image1File);
           const base64Image2 = await fileToBase64(image2File);
 
-          // The API key is provided by the environment
-          const apiKey = "";
+          // Use the API key provided by the user
           const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
           // Loop through each prompt separately to generate three images
@@ -154,8 +171,14 @@
         } catch (error) {
           console.error('Error generating images:', error);
           errorElement.classList.remove('hidden');
-          errorElement.querySelector('p').textContent =
-            'An error occurred during generation. Please try again.';
+          const errorMessage = errorElement.querySelector('p:last-child');
+          if (error.message.includes('API response failed. Status: 401')) {
+            errorMessage.textContent = 'Invalid API key. Please check your Google Gemini API key and try again.';
+          } else if (error.message.includes('API response failed. Status: 403')) {
+            errorMessage.textContent = 'API access denied. Please ensure your API key has the necessary permissions.';
+          } else {
+            errorMessage.textContent = 'An error occurred during generation. Please try again.';
+          }
         } finally {
           loadingIndicator.classList.add('hidden');
           generateBtn.disabled = false;
