@@ -2,11 +2,6 @@
 
 import { useState, useRef } from 'react';
 
-// This is a single, self-contained React component for the image generator.
-// In a production Next.js app, you would use a server-side API route to securely
-// handle the API call and keep your API key hidden from the public.
-// For this environment, the API key is handled automatically.
-
 const prompts = [
   'a polaroid photo of the two people with a white curtain background, no props, slight blur, and a soft flash light source',
   'a polaroid photo of the two people high-fiving each other with a white curtain background, soft light, slightly blurred',
@@ -38,7 +33,7 @@ export default function Home() {
       const base64Image1 = await fileToBase64(image1File);
       const base64Image2 = await fileToBase64(image2File);
 
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY; // Add your API key in .env.local
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
       const newImages = [];
