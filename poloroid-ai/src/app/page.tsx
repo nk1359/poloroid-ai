@@ -11,13 +11,13 @@ const prompts = [
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [generatedImages, setGeneratedImages] = useState([]);
-  const image1Ref = useRef(null);
-  const image2Ref = useRef(null);
+  const [generatedImages, setGeneratedImages] = useState<{ src: string; alt: string }[]>([]);
+  const image1Ref = useRef<HTMLInputElement>(null);
+  const image2Ref = useRef<HTMLInputElement>(null);
 
   const handleGenerate = async () => {
-    const image1File = image1Ref.current.files[0];
-    const image2File = image2Ref.current.files[0];
+    const image1File = image1Ref.current?.files?.[0];
+    const image2File = image2Ref.current?.files?.[0];
 
     if (!image1File || !image2File) {
       setError('Please upload two images to continue.');
@@ -61,7 +61,7 @@ export default function Home() {
 
         const result = await response.json();
         const generatedImage = result?.candidates?.[0]?.content?.parts?.find(
-          part => part.inlineData && part.inlineData.mimeType.startsWith('image/')
+          (part: any) => part.inlineData && part.inlineData.mimeType.startsWith('image/')
         );
 
         if (generatedImage) {
@@ -81,10 +81,17 @@ export default function Home() {
     }
   };
 
-  const fileToBase64 = (file) => {
+  const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        } else {
+          reject(new Error('FileReader result is not a string.'));
+        }
+      };
       reader.onerror = error => reject(error);
       reader.readAsDataURL(file);
     });
