@@ -103,7 +103,7 @@ export default function Home() {
         <div className="text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Image Generator</h1>
           <p className="text-gray-400 mb-8">
-            Upload two images, and I will generate three new pictures based on a set of custom prompts.
+            Upload two images, and polaroid pictures will be generated.
           </p>
         </div>
 
