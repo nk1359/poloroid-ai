@@ -120,6 +120,8 @@ body {
 
 .upload-container {
   position: relative;
+  flex-grow: 1;
+  display: flex;
 }
 
 .upload-input {
@@ -139,6 +141,9 @@ body {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .upload-box:hover {
@@ -753,7 +758,6 @@ body {
     gap: 1.5rem;
     margin-bottom: 3rem;
     justify-content: center;
-    align-items: flex-start;
     }
   
   .upload-group {
@@ -866,7 +870,6 @@ body {
   .upload-grid {
     gap: 0.75rem;
     margin-bottom: 2rem;
-    align-items: flex-start;
   }
   
   .upload-group {
