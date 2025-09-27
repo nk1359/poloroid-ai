@@ -186,14 +186,14 @@ body {
 .upload-text {
   color: #e2e8f0;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.750rem;
   margin: 0;
 }
 
 .upload-text-success {
   color: #10b981;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.750rem;
   margin: 0;
 }
 
