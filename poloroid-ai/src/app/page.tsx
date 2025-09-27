@@ -460,18 +460,6 @@ export default function Home() {
                         alt={generatedImages[index].alt}
                         className="progress-image"
                       />
-                      <div className="progress-download-container">
-                        <button
-                          onClick={() => handleDownload(generatedImages[index].src, `polaroid-${generatedImages[index].alt.toLowerCase().replace(/\s+/g, '-')}.png`)}
-                          className="progress-download-button"
-                          title="Download image"
-                        >
-                          <svg className="progress-download-icon" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 15l-4-4h3V3h2v8h3l-4 4z" />
-                          </svg>
-                          Download
-                        </button>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -481,7 +469,7 @@ export default function Home() {
         )}
 
         {/* Generated Images Gallery - Show after completion */}
-        {!loading && generatedImages.length > 0 && (
+        {!loading && generatedImages.length > 0 && generatedImages.length === selectedPrompts.length && (
           <div className="gallery-container">
             <h3 className="gallery-title">Your Generated Polaroids</h3>
             <div className="gallery-grid">
