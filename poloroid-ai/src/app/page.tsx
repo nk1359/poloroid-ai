@@ -2,18 +2,58 @@
 
 import { useState, useRef } from 'react';
 
-const prompts = [
-  'a polaroid photo of the two people with a white curtain background, no props, slight blur, and a soft flash light source',
-  'a polaroid photo of the two people high-fiving each other with a white curtain background, soft light, slightly blurred',
-  'a polaroid photo of the two people hugging with a white curtain background, soft light, slightly blurred'
+const promptOptions = [
+  {
+    id: 'portrait',
+    label: 'Portrait',
+    prompt: 'a polaroid photo of the two people with a white curtain background, no props, slight blur, and a soft flash light source'
+  },
+  {
+    id: 'high-five',
+    label: 'High Five',
+    prompt: 'a polaroid photo of the two people high-fiving each other with a white curtain background, soft light, slightly blurred'
+  },
+  {
+    id: 'hug',
+    label: 'Hug',
+    prompt: 'a polaroid photo of the two people hugging with a white curtain background, soft light, slightly blurred'
+  }
 ];
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [generatedImages, setGeneratedImages] = useState<{ src: string; alt: string }[]>([]);
+  const [imageProgress, setImageProgress] = useState<number[]>([]);
+  const [imageStatus, setImageStatus] = useState<string[]>([]);
+  const [selectedPrompts, setSelectedPrompts] = useState<string[]>(['portrait', 'high-five', 'hug']); // Default to all selected
+  const [uploadedFiles, setUploadedFiles] = useState<{ file1: File | null; file2: File | null }>({ file1: null, file2: null });
   const image1Ref = useRef<HTMLInputElement>(null);
   const image2Ref = useRef<HTMLInputElement>(null);
+
+  const handlePromptToggle = (promptId: string) => {
+    setSelectedPrompts(prev => 
+      prev.includes(promptId) 
+        ? prev.filter(id => id !== promptId)
+        : [...prev, promptId]
+    );
+  };
+
+  const handleFileUpload = (file: File | null, type: 'file1' | 'file2') => {
+    setUploadedFiles(prev => ({
+      ...prev,
+      [type]: file
+    }));
+  };
+
+  const handleDownload = (imageSrc: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = imageSrc;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleGenerate = async () => {
     const image1File = image1Ref.current?.files?.[0];
@@ -22,12 +62,21 @@ export default function Home() {
     if (!image1File || !image2File) {
       setError('Please upload two images to continue.');
       return;
-    } else {
-      setError('');
     }
 
+    if (selectedPrompts.length === 0) {
+      setError('Please select at least one prompt to generate.');
+      return;
+    }
+
+    setError('');
     setLoading(true);
     setGeneratedImages([]);
+    
+    // Initialize progress arrays based on selected prompts
+    const selectedCount = selectedPrompts.length;
+    setImageProgress(new Array(selectedCount).fill(0));
+    setImageStatus(new Array(selectedCount).fill('pending'));
 
     try {
       const base64Image1 = await fileToBase64(image1File);
@@ -37,11 +86,33 @@ export default function Home() {
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
 
       const newImages = [];
-      for (let i = 0; i < prompts.length; i++) {
+      const selectedPromptObjects = promptOptions.filter(option => selectedPrompts.includes(option.id));
+      
+      for (let i = 0; i < selectedPromptObjects.length; i++) {
+        const currentPrompt = selectedPromptObjects[i];
+        
+        // Update status to generating for current image
+        setImageStatus(prev => {
+          const newStatus = [...prev];
+          newStatus[i] = 'generating';
+          return newStatus;
+        });
+
+        // Simulate progress for current image
+        const progressInterval = setInterval(() => {
+          setImageProgress(prev => {
+            const newProgress = [...prev];
+            if (newProgress[i] < 90) {
+              newProgress[i] += Math.random() * 10;
+            }
+            return newProgress;
+          });
+        }, 200);
+
         const payload = {
           contents: [{
             parts: [
-              { text: prompts[i] },
+              { text: currentPrompt.prompt },
               { inlineData: { mimeType: image1File.type, data: base64Image1 } },
               { inlineData: { mimeType: image2File.type, data: base64Image2 } }
             ]
@@ -64,20 +135,40 @@ export default function Home() {
           (part: any) => part.inlineData && part.inlineData.mimeType.startsWith('image/')
         );
 
+        // Clear progress interval
+        clearInterval(progressInterval);
+
         if (generatedImage) {
           const base64Data = generatedImage.inlineData.data;
           const imageUrl = `data:${generatedImage.inlineData.mimeType};base64,${base64Data}`;
-          newImages.push({ src: imageUrl, alt: prompts[i] });
+          const newImage = { src: imageUrl, alt: currentPrompt.label };
+          newImages.push(newImage);
+          
+          // Update progress to 100% and status to completed
+          setImageProgress(prev => {
+            const newProgress = [...prev];
+            newProgress[i] = 100;
+            return newProgress;
+          });
+          setImageStatus(prev => {
+            const newStatus = [...prev];
+            newStatus[i] = 'completed';
+            return newStatus;
+          });
+          
+          // Add the image immediately to the display
+          setGeneratedImages([...newImages]);
         } else {
-          throw new Error('No image returned for prompt: ' + prompts[i]);
+          throw new Error('No image returned for prompt: ' + currentPrompt.label);
         }
       }
-      setGeneratedImages(newImages);
     } catch (error) {
       console.error('Error generating images:', error);
       setError('An error occurred during generation. Please try again.');
     } finally {
       setLoading(false);
+      setImageProgress([0, 0, 0]);
+      setImageStatus(['pending', 'pending', 'pending']);
     }
   };
 
@@ -98,74 +189,342 @@ export default function Home() {
   };
 
   return (
-    <div className="p-6 md:p-10 flex items-center justify-center min-h-screen font-sans bg-gray-900 text-gray-200">
-      <div className="container mx-auto p-8 bg-gray-800 rounded-2xl shadow-xl max-w-4xl">
-        <div className="text-center">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Image Generator</h1>
-          <p className="text-gray-400 mb-8">
-            Upload two images, and polaroid pictures will be generated.
+    <div className="polaroid-container">
+      <div className="polaroid-card">
+        <div className="polaroid-header">
+          <h1 className="polaroid-title">
+            Polaroid AI
+          </h1>
+          <p className="polaroid-subtitle">
+            Transform your photos into beautiful polaroid memories with AI-powered generation
           </p>
         </div>
 
-        {/* Upload inputs */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">
-          <div className="w-full md:w-1/2">
-            <label className="block text-gray-200 font-medium mb-2">Image 1</label>
-            <input type="file" ref={image1Ref} accept="image/*"
-              className="w-full p-3 border-2 border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300 bg-gray-700 text-gray-200" />
+        {/* Modern Upload Areas */}
+        <div className="upload-grid">
+          <div className="upload-group">
+            <label className="upload-label">1st Photo</label>
+            <div className="upload-container">
+              <input 
+                type="file" 
+                ref={image1Ref} 
+                accept="image/*"
+                className="upload-input"
+                onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'file1')}
+              />
+              <div className={`upload-box ${uploadedFiles.file1 ? 'upload-box-success' : ''}`}>
+                <div className="upload-content">
+                  {uploadedFiles.file1 ? (
+                    <>
+                      <div className="upload-icon upload-icon-success">
+                        <svg className="upload-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="upload-text-success">✓ {uploadedFiles.file1.name}</p>
+                        <p className="upload-subtext">Click to change</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="upload-icon">
+                        <svg className="upload-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="upload-text">Drop your first photo here</p>
+                        <p className="upload-subtext">or click to browse</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="w-full md:w-1/2">
-            <label className="block text-gray-200 font-medium mb-2">Image 2</label>
-            <input type="file" ref={image2Ref} accept="image/*"
-              className="w-full p-3 border-2 border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300 bg-gray-700 text-gray-200" />
+          
+          <div className="upload-group">
+            <label className="upload-label">2nd Photo</label>
+            <div className="upload-container">
+              <input 
+                type="file" 
+                ref={image2Ref} 
+                accept="image/*"
+                className="upload-input"
+                onChange={(e) => handleFileUpload(e.target.files?.[0] || null, 'file2')}
+              />
+              <div className={`upload-box ${uploadedFiles.file2 ? 'upload-box-success' : ''}`}>
+                <div className="upload-content">
+                  {uploadedFiles.file2 ? (
+                    <>
+                      <div className="upload-icon upload-icon-success">
+                        <svg className="upload-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="upload-text-success">✓ {uploadedFiles.file2.name}</p>
+                        <p className="upload-subtext">Click to change</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="upload-icon">
+                        <svg className="upload-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="upload-text">Drop your second photo here</p>
+                        <p className="upload-subtext">or click to browse</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Generate button */}
-        <div className="flex justify-center mb-8">
+        {/* Modern Prompt Selection Cards */}
+        <div className="prompt-grid">
+          {promptOptions.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => handlePromptToggle(option.id)}
+              className={`prompt-card ${
+                selectedPrompts.includes(option.id)
+                  ? 'prompt-card-selected'
+                  : 'prompt-card-unselected'
+              }`}
+            >
+              <div className="prompt-content">
+                <div className={`prompt-icon ${
+                  selectedPrompts.includes(option.id)
+                    ? 'prompt-icon-selected'
+                    : 'prompt-icon-unselected'
+                }`}>
+                  {option.id === 'portrait' && (
+                    <svg className="prompt-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  )}
+                  {option.id === 'high-five' && (
+                    <svg className="prompt-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  )}
+                  {option.id === 'hug' && (
+                    <svg className="prompt-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  )}
+                </div>
+                <div className="prompt-text">
+                  <h3 className="prompt-title">{option.label}</h3>
+                </div>
+                <div className={`prompt-checkbox ${
+                  selectedPrompts.includes(option.id)
+                    ? 'prompt-checkbox-selected'
+                    : 'prompt-checkbox-unselected'
+                }`}>
+                  {selectedPrompts.includes(option.id) && (
+                    <svg className="prompt-checkmark" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Modern Generate Button */}
+        <div className="generate-container">
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className={`bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform ${
-              loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700 hover:scale-105 active:scale-95'
-            } duration-300 focus:outline-none focus:ring-4 focus:ring-blue-800`}
+            className={`generate-button ${
+              loading 
+                ? 'generate-button-loading' 
+                : 'generate-button-active'
+            }`}
           >
-            {loading ? 'Generating...' : 'Generate Images'}
+            <div className="generate-content">
+              {loading ? (
+                <>
+                  <div className="generate-spinner"></div>
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="generate-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span>Generate Polaroids</span>
+                </>
+              )}
+            </div>
           </button>
         </div>
 
-        {/* Loading indicator */}
+        {/* Progress Cards - Show during loading */}
         {loading && (
-          <div className="text-center text-gray-400 mb-6">
-            <svg className="animate-spin h-8 w-8 text-blue-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none"
-              viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0
-                3.042 1.135 5.824 3 7.965l1-1.674zm10 0l-1-1.674c1.865-2.141 3-4.923 3-7.965h-4v8z">
-              </path>
+          <div className="progress-container">
+            <h3 className="progress-title">Creating Your Polaroids</h3>
+            <div className="progress-grid">
+              {promptOptions.filter(option => selectedPrompts.includes(option.id)).map((option, index) => (
+                <div key={index} className="progress-card">
+                  <div className="progress-header">
+                    <div className="progress-info">
+                      <div className={`progress-icon ${
+                        imageStatus[index] === 'completed' 
+                          ? 'progress-icon-completed' 
+                          : imageStatus[index] === 'generating'
+                          ? 'progress-icon-generating'
+                          : 'progress-icon-pending'
+                      }`}>
+                        {option.id === 'portrait' && (
+                          <svg className="progress-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        )}
+                        {option.id === 'high-five' && (
+                          <svg className="progress-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                          </svg>
+                        )}
+                        {option.id === 'hug' && (
+                          <svg className="progress-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="progress-details">
+                      </div>
+                    </div>
+                    <span className="progress-percentage">
+                      {Math.round(imageProgress[index])}%
+                    </span>
+                  </div>
+                  
+                  <div className="progress-bar-container">
+                    <div 
+                      className={`progress-bar ${
+                        imageStatus[index] === 'completed' 
+                          ? 'progress-bar-completed' 
+                          : imageStatus[index] === 'generating'
+                          ? 'progress-bar-generating'
+                          : 'progress-bar-pending'
+                      }`}
+                      style={{ width: `${imageProgress[index]}%` }}
+                    >
+                      {/* Scrolling animation for generating state */}
+                      {imageStatus[index] === 'generating' && (
+                        <div className="absolute inset-0 overflow-hidden">
+                          <div className="h-full w-full bg-gradient-to-r from-transparent via-white to-transparent opacity-60 scroll-shimmer"></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="progress-status">
+                    {imageStatus[index] === 'pending' && (
+                      <span className="progress-status-pending">
+                        <div className="progress-dot progress-dot-pending"></div>
+                        Waiting to start
+                      </span>
+                    )}
+                    {imageStatus[index] === 'generating' && (
+                      <span className="progress-status-generating">
+                        <div className="progress-spinner"></div>
+                        Creating polaroid...
+                      </span>
+                    )}
+                    {imageStatus[index] === 'completed' && (
+                      <span className="progress-status-completed">
+                        <svg className="progress-checkmark" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Ready!
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Show generated image inline when completed */}
+                  {imageStatus[index] === 'completed' && generatedImages.length > index && generatedImages[index] && (
+                    <div className="progress-generated-image">
+                      <img 
+                        src={generatedImages[index].src} 
+                        alt={generatedImages[index].alt}
+                        className="progress-image"
+                      />
+                      <div className="progress-download-container">
+                        <button
+                          onClick={() => handleDownload(generatedImages[index].src, `polaroid-${generatedImages[index].alt.toLowerCase().replace(/\s+/g, '-')}.png`)}
+                          className="progress-download-button"
+                          title="Download image"
+                        >
+                          <svg className="progress-download-icon" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 15l-4-4h3V3h2v8h3l-4 4z" />
+                          </svg>
+                          Download
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Generated Images Gallery - Show after completion */}
+        {!loading && generatedImages.length > 0 && (
+          <div className="gallery-container">
+            <h3 className="gallery-title">Your Generated Polaroids</h3>
+            <div className="gallery-grid">
+              {generatedImages.map((image, index) => (
+                <div key={index} className="gallery-card">
+                  <div className="gallery-image-container">
+                    <img 
+                      src={image.src} 
+                      alt={image.alt} 
+                      className="gallery-image" 
+                    />
+                  </div>
+                  <div className="gallery-content">
+                    <button
+                      onClick={() => handleDownload(image.src, `polaroid-${image.alt.toLowerCase().replace(/\s+/g, '-')}.png`)}
+                      className="gallery-save-button"
+                      title="Download image"
+                    >
+                      <svg className="gallery-save-icon" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 15l-4-4h3V3h2v8h3l-4 4z" />
             </svg>
-            <p className="mt-2">Generating your images...</p>
+                      Download
+                    </button>
+                    <h4 className="gallery-name">{image.alt}</h4>
+                    <p className="gallery-subtitle">Polaroid Style</p>
+                    <div className="gallery-status">
+                      <div className="gallery-status-dot"></div>
+                      <span className="gallery-status-text">Generated</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Error message */}
         {error && (
-          <div className="bg-red-900 border-l-4 border-red-700 text-red-200 p-4 rounded-lg mb-6" role="alert">
-            <p className="font-bold">Error</p>
-            <p>{error}</p>
+          <div className="error-container" role="alert">
+            <p className="error-title">Error</p>
+            <p className="error-message">{error}</p>
           </div>
         )}
-
-        {/* Image Gallery */}
-        <div id="image-gallery" className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {generatedImages.map((image, index) => (
-            <div key={index} className="bg-gray-700 rounded-xl p-4 shadow-md flex flex-col items-center">
-              <img src={image.src} alt={image.alt} className="w-full h-auto rounded-lg mb-2 object-contain" />
-              <p className="text-sm text-gray-400 text-center italic">{image.alt}</p>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
