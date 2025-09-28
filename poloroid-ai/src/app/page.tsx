@@ -48,82 +48,60 @@ export default function Home() {
 
   const handleDownload = async (imageSrc: string, filename: string) => {
     try {
-      // Check if we're on mobile/iOS
+      // Convert base64 to blob
+      const response = await fetch(imageSrc);
+      const blob = await response.blob();
+      
+      // Check if Web Share API is supported (modern mobile browsers)
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: blob.type });
+        
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Polaroid Image',
+              text: 'Check out this polaroid image!'
+            });
+            return; // Successfully shared
+          } catch (shareError) {
+            console.log('Share cancelled or failed:', shareError);
+            // Continue to fallback methods
+          }
+        }
+      }
+      
+      // Check if we're on mobile
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       
       if (isMobile) {
-        // For mobile devices, especially iOS, we need to handle image saving differently
+        // For mobile devices, try to trigger download directly
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create a temporary link and click it
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        
+        // For iOS Safari, we need to handle it differently
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         if (isIOS) {
-          // On iOS, open the image in a new tab so users can long-press to save
-          const newWindow = window.open();
-          if (newWindow) {
-            newWindow.document.write(`
-              <html>
-                <head>
-                  <title>Save Image</title>
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <style>
-                    body { 
-                      margin: 0; 
-                      padding: 20px; 
-                      background: #000; 
-                      display: flex; 
-                      flex-direction: column;
-                      align-items: center; 
-                      justify-content: center; 
-                      min-height: 100vh;
-                      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                    }
-                    img { 
-                      max-width: 100%; 
-                      height: auto; 
-                      border-radius: 8px;
-                      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                    }
-                    .instructions {
-                      color: white;
-                      text-align: center;
-                      margin-top: 20px;
-                      padding: 15px;
-                      background: rgba(255,255,255,0.1);
-                      border-radius: 8px;
-                      backdrop-filter: blur(10px);
-                    }
-                  </style>
-                </head>
-                <body>
-                  <img src="${imageSrc}" alt="${filename}">
-                  <div class="instructions">
-                    <p><strong>To save to Photos:</strong></p>
-                    <p>Long press the image above and select "Save to Photos"</p>
-                  </div>
-                </body>
-              </html>
-            `);
-            newWindow.document.close();
-          }
+          // On iOS, we'll open the blob URL directly which allows saving
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
         } else {
-          // For Android and other mobile browsers, try the standard download
-          const response = await fetch(imageSrc);
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          link.style.display = 'none';
+          // For Android and other mobile browsers
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
         }
+        
+        // Clean up
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       } else {
         // Desktop browsers - standard download
-        const response = await fetch(imageSrc);
-        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        
         const link = document.createElement('a');
         link.href = url;
         link.download = filename;
@@ -135,7 +113,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Download failed:', error);
-      // Fallback: try the original method
+      // Ultimate fallback: try the original simple method
       const link = document.createElement('a');
       link.href = imageSrc;
       link.download = filename;
