@@ -26,7 +26,7 @@ export default function Home() {
   const [generatedImages, setGeneratedImages] = useState<{ src: string; alt: string }[]>([]);
   const [imageProgress, setImageProgress] = useState<number[]>([]);
   const [imageStatus, setImageStatus] = useState<string[]>([]);
-  const [selectedPrompts, setSelectedPrompts] = useState<string[]>(['portrait', 'high-five', 'hug']); // Default to all selected
+  const [selectedPrompts, setSelectedPrompts] = useState<string[]>([]); // Start with none selected
   const [uploadedFiles, setUploadedFiles] = useState<{ file1: File | null; file2: File | null }>({ file1: null, file2: null });
   const image1Ref = useRef<HTMLInputElement>(null);
   const image2Ref = useRef<HTMLInputElement>(null);
@@ -287,47 +287,30 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Modern Prompt Selection Cards */}
-        <div className="prompt-grid">
-          {promptOptions.map((option) => (
-            <button
-              key={option.id}
-              onClick={() => handlePromptToggle(option.id)}
-              className={`prompt-card ${
-                selectedPrompts.includes(option.id)
-                  ? 'prompt-card-selected'
-                  : 'prompt-card-unselected'
-              }`}
-            >
-              <div className="prompt-content">
-                <div className={`prompt-icon ${
+        {/* Prompt Selection Section */}
+        <div className="prompt-section">
+          <div className="prompt-header">
+            <h2 className="prompt-section-title">Select Styles</h2>
+            <p className="prompt-section-subtitle">Choose one or more styles for your polaroid photos</p>
+          </div>
+          
+          <div className="prompt-grid">
+            {promptOptions.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => handlePromptToggle(option.id)}
+                className={`prompt-card ${
                   selectedPrompts.includes(option.id)
-                    ? 'prompt-icon-selected'
-                    : 'prompt-icon-unselected'
-                }`}>
-                  <img 
-                    src="/polaroid.svg" 
-                    alt="Polaroid camera" 
-                    className="prompt-icon-svg"
-                  />
-                </div>
-                <div className="prompt-text">
+                    ? 'prompt-card-selected'
+                    : 'prompt-card-unselected'
+                }`}
+              >
+                <div className="prompt-content">
                   <h3 className="prompt-title">{option.label}</h3>
                 </div>
-                <div className={`prompt-checkbox ${
-                  selectedPrompts.includes(option.id)
-                    ? 'prompt-checkbox-selected'
-                    : 'prompt-checkbox-unselected'
-                }`}>
-                  {selectedPrompts.includes(option.id) && (
-                    <svg className="prompt-checkmark" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Modern Generate Button */}
@@ -368,20 +351,9 @@ export default function Home() {
                 <div key={index} className="progress-card">
                   <div className="progress-header">
                     <div className="progress-info">
-                      <div className={`progress-icon ${
-                        imageStatus[index] === 'completed' 
-                          ? 'progress-icon-completed' 
-                          : imageStatus[index] === 'generating'
-                          ? 'progress-icon-generating'
-                          : 'progress-icon-pending'
-                      }`}>
-                        <img 
-                          src="/polaroid.svg" 
-                          alt="Polaroid camera" 
-                          className="progress-icon-svg"
-                        />
-                      </div>
                       <div className="progress-details">
+                        <h4 className="progress-prompt-title">{option.label}</h4>
+                        <p className="progress-prompt-subtitle">Polaroid Style</p>
                       </div>
                     </div>
                     <span className="progress-percentage">
