@@ -46,13 +46,104 @@ export default function Home() {
     }));
   };
 
-  const handleDownload = (imageSrc: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = imageSrc;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async (imageSrc: string, filename: string) => {
+    try {
+      // Check if we're on mobile/iOS
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // For mobile devices, especially iOS, we need to handle image saving differently
+        if (isIOS) {
+          // On iOS, open the image in a new tab so users can long-press to save
+          const newWindow = window.open();
+          if (newWindow) {
+            newWindow.document.write(`
+              <html>
+                <head>
+                  <title>Save Image</title>
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <style>
+                    body { 
+                      margin: 0; 
+                      padding: 20px; 
+                      background: #000; 
+                      display: flex; 
+                      flex-direction: column;
+                      align-items: center; 
+                      justify-content: center; 
+                      min-height: 100vh;
+                      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                    }
+                    img { 
+                      max-width: 100%; 
+                      height: auto; 
+                      border-radius: 8px;
+                      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                    }
+                    .instructions {
+                      color: white;
+                      text-align: center;
+                      margin-top: 20px;
+                      padding: 15px;
+                      background: rgba(255,255,255,0.1);
+                      border-radius: 8px;
+                      backdrop-filter: blur(10px);
+                    }
+                  </style>
+                </head>
+                <body>
+                  <img src="${imageSrc}" alt="${filename}">
+                  <div class="instructions">
+                    <p><strong>To save to Photos:</strong></p>
+                    <p>Long press the image above and select "Save to Photos"</p>
+                  </div>
+                </body>
+              </html>
+            `);
+            newWindow.document.close();
+          }
+        } else {
+          // For Android and other mobile browsers, try the standard download
+          const response = await fetch(imageSrc);
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }
+      } else {
+        // Desktop browsers - standard download
+        const response = await fetch(imageSrc);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback: try the original method
+      const link = document.createElement('a');
+      link.href = imageSrc;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const handleGenerate = async () => {
@@ -440,9 +531,9 @@ export default function Home() {
                       className="gallery-save-button"
                       title="Download image"
                     >
-                      <svg className="gallery-save-icon" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 15l-4-4h3V3h2v8h3l-4 4z" />
-            </svg>
+                      <svg className="gallery-save-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+                      </svg>
                       Download
                     </button>
                     <h4 className="gallery-name">{image.alt}</h4>
