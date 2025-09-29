@@ -17,6 +17,51 @@ const promptOptions = [
     id: 'hug',
     label: 'Hug',
     prompt: 'a polaroid photo of the two people hugging with a white curtain background, soft light, slightly blurred'
+  },
+  {
+    id: 'laughing',
+    label: 'Laughing',
+    prompt: 'a polaroid photo of the two people laughing together with a white curtain background, candid moment, soft light, slightly blurred'
+  },
+  {
+    id: 'back-to-back',
+    label: 'Back to Back',
+    prompt: 'a polaroid photo of the two people standing back to back with a white curtain background, cool pose, soft light, slightly blurred'
+  },
+  {
+    id: 'peace-signs',
+    label: 'Peace Signs',
+    prompt: 'a polaroid photo of the two people making peace signs with their hands with a white curtain background, fun pose, soft light, slightly blurred'
+  },
+  {
+    id: 'sitting',
+    label: 'Sitting',
+    prompt: 'a polaroid photo of the two people sitting together with a white curtain background, relaxed pose, soft light, slightly blurred'
+  },
+  {
+    id: 'jumping',
+    label: 'Jumping',
+    prompt: 'a polaroid photo of the two people jumping in the air together with a white curtain background, energetic moment, soft light, slightly blurred'
+  },
+  {
+    id: 'thumbs-up',
+    label: 'Thumbs Up',
+    prompt: 'a polaroid photo of the two people giving thumbs up with a white curtain background, positive vibes, soft light, slightly blurred'
+  },
+  {
+    id: 'pointing',
+    label: 'Pointing',
+    prompt: 'a polaroid photo of the two people pointing at each other with a white curtain background, playful interaction, soft light, slightly blurred'
+  },
+  {
+    id: 'crossed-arms',
+    label: 'Crossed Arms',
+    prompt: 'a polaroid photo of the two people standing with crossed arms with a white curtain background, confident pose, soft light, slightly blurred'
+  },
+  {
+    id: 'waving',
+    label: 'Waving',
+    prompt: 'a polaroid photo of the two people waving at the camera with a white curtain background, friendly gesture, soft light, slightly blurred'
   }
 ];
 
@@ -32,11 +77,18 @@ export default function Home() {
   const image2Ref = useRef<HTMLInputElement>(null);
 
   const handlePromptToggle = (promptId: string) => {
-    setSelectedPrompts(prev => 
-      prev.includes(promptId) 
-        ? prev.filter(id => id !== promptId)
-        : [...prev, promptId]
-    );
+    setSelectedPrompts(prev => {
+      if (prev.includes(promptId)) {
+        // Remove if already selected
+        return prev.filter(id => id !== promptId);
+      } else {
+        // Add only if less than 3 are selected
+        if (prev.length < 3) {
+          return [...prev, promptId];
+        }
+        return prev; // Don't add if already at limit
+      }
+    });
   };
 
   const handleFileUpload = (file: File | null, type: 'file1' | 'file2') => {
@@ -373,7 +425,7 @@ export default function Home() {
         <div className="prompt-section">
           <div className="prompt-header">
             <h2 className="prompt-section-title">Select Styles</h2>
-            <p className="prompt-section-subtitle">Choose one or more styles for your polaroid photos</p>
+            <p className="prompt-section-subtitle">Choose up to 3 styles for your polaroid photos ({selectedPrompts.length}/3 selected)</p>
           </div>
           
           <div className="prompt-grid">
@@ -381,9 +433,12 @@ export default function Home() {
               <button
                 key={option.id}
                 onClick={() => handlePromptToggle(option.id)}
+                disabled={!selectedPrompts.includes(option.id) && selectedPrompts.length >= 3}
                 className={`prompt-card ${
                   selectedPrompts.includes(option.id)
                     ? 'prompt-card-selected'
+                    : selectedPrompts.length >= 3 
+                    ? 'prompt-card-disabled'
                     : 'prompt-card-unselected'
                 }`}
               >
