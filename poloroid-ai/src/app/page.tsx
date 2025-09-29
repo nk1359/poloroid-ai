@@ -167,16 +167,27 @@ export default function Home() {
           return newStatus;
         });
 
-        // Simulate progress for current image
+        // Create a more linear progress simulation that actually works
         const progressInterval = setInterval(() => {
           setImageProgress(prev => {
             const newProgress = [...prev];
-            if (newProgress[i] < 90) {
-              newProgress[i] += Math.random() * 10;
+            const current = newProgress[i] || 0;
+            
+            // Continue progressing until 98% (not stopping at 90%)
+            if (current < 98) {
+              // Progress that slows down in the 50-80% range but not too much
+              const increment = current < 20 ? 4 + Math.random() * 3 : 
+                               current < 40 ? 3 + Math.random() * 2 :
+                               current < 50 ? 2 + Math.random() * 1.5 :
+                               current < 80 ? 0.4 + Math.random() * 0.6 :  // Slower but not too slow in 50-80%
+                               current < 90 ? 1 + Math.random() * 1 :
+                               0.3 + Math.random() * 0.4;
+              
+              newProgress[i] = Math.min(98, current + increment);
             }
             return newProgress;
           });
-        }, 200);
+        }, 120);
 
         const payload = {
           contents: [{
@@ -213,12 +224,14 @@ export default function Home() {
           const newImage = { src: imageUrl, alt: currentPrompt.label };
           newImages.push(newImage);
           
-          // Update progress to 100% and status to completed
+          // Immediately complete the progress
           setImageProgress(prev => {
             const newProgress = [...prev];
             newProgress[i] = 100;
             return newProgress;
           });
+          
+          // Update status to completed
           setImageStatus(prev => {
             const newStatus = [...prev];
             newStatus[i] = 'completed';
